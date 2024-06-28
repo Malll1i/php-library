@@ -1,47 +1,31 @@
 <?php
 session_start();
 
-
-if (!isset($_SESSION['admin_logged_in']) || !$_SESSION['admin_logged_in']) {
+// Проверка, авторизован ли пользователь и является ли он админом
+if (!isset($_SESSION['user_logged_in']) || !$_SESSION['user_logged_in'] || $_SESSION['username'] !== 'admin') {
     header('Location: login.php');
     exit();
 }
 
-
+// Настройки базы данных
 $servername = "localhost";
-$username = "root"; 
-$password = ""; 
+$username = "root";
+$password = "";
 $dbname = "library";
 
-
+// Подключение к базе данных
 $conn = new mysqli($servername, $username, $password, $dbname);
 
-
+// Проверка подключения
 if ($conn->connect_error) {
     die("Ошибка подключения: " . $conn->connect_error);
 }
 
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $title = $_POST['title'];
-    $author = $_POST['author'];
-    $description = $_POST['description'];
-    $year = $_POST['year'];
-    $genre = $_POST['genre'];
-
-    // Подготовка и выполнение SQL-запроса
-    $stmt = $conn->prepare("INSERT INTO books (title, author, description, year, genre) VALUES (?, ?, ?, ?, ?)");
-    $stmt->bind_param("sssis", $title, $author, $description, $year, $genre);
-
-    if ($stmt->execute()) {
-        echo "Книга успешно добавлена";
-    } else {
-        echo "Ошибка добавления книги: " . $stmt->error;
-    }
-
-    $stmt->close();
-}
-
-$conn->close();
+// Получение запросов на взятие книг
+$sql = "SELECT book_requests.id, books.title, book_requests.user, book_requests.phone_number, book_requests.request_date
+        FROM book_requests
+        JOIN books ON book_requests.book_id = books.id";
+$result = $conn->query($sql);
 ?>
 
 <!DOCTYPE html>
@@ -53,9 +37,8 @@ $conn->close();
     <style>
         body {
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            height: 100vh;
             margin: 0;
             font-family: Arial, sans-serif;
             background: linear-gradient(to right, #ff7e5f, #feb47b);
@@ -63,11 +46,12 @@ $conn->close();
 
         .admin-container {
             background: white;
-            padding: 40px;
+            padding: 20px;
             border-radius: 10px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            max-width: 600px;
+            max-width: 800px;
             width: 100%;
+            margin: 20px 0;
         }
 
         .admin-container h2 {
@@ -76,43 +60,44 @@ $conn->close();
             color: #333;
         }
 
-        .admin-container input[type="text"],
-        .admin-container textarea {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ccc;
-            border-radius: 5px;
+        .request {
+            border-bottom: 1px solid #ccc;
+            padding: 10px 0;
         }
 
-        .admin-container button {
-            width: 100%;
-            padding: 10px;
-            background: #ff7e5f;
-            border: none;
-            border-radius: 5px;
-            color: white;
+        .request:last-child {
+            border-bottom: none;
+        }
+
+        .request-title, .request-user, .request-phone, .request-date {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .request-title {
+            font-weight: bold;
             font-size: 16px;
-            cursor: pointer;
-            transition: background 0.3s;
-        }
-
-        .admin-container button:hover {
-            background: #feb47b;
         }
     </style>
 </head>
 <body>
     <div class="admin-container">
-        <h2>Добавление книги</h2>
-        <form action="admin.php" method="POST">
-            <input type="text" name="title" placeholder="Наименование" required>
-            <input type="text" name="author" placeholder="Автор" required>
-            <textarea name="description" placeholder="Описание" required></textarea>
-            <input type="text" name="year" placeholder="Год издания" required>
-            <input type="text" name="genre" placeholder="Жанр" required>
-            <button type="submit">Добавить книгу</button>
-        </form>
+        <h2>Запросы на взятие книг</h2>
+        <?php
+        if ($result->num_rows > 0) {
+            while($row = $result->fetch_assoc()) {
+                echo "<div class='request'>";
+                echo "<div class='request-title'>Книга: " . htmlspecialchars($row["title"]) . "</div>";
+                echo "<div class='request-user'>Пользователь: " . htmlspecialchars($row["user"]) . "</div>";
+                echo "<div class='request-phone'>Телефон: " . htmlspecialchars($row["phone_number"]) . "</div>";
+                echo "<div class='request-date'>Дата запроса: " . htmlspecialchars($row["request_date"]) . "</div>";
+                echo "</div>";
+            }
+        } else {
+            echo "Нет запросов на взятие книг.";
+        }
+        $conn->close();
+        ?>
     </div>
 </body>
 </html>

@@ -44,6 +44,42 @@ if (!empty($genre_filter)) {
 }
 
 $result = $conn->query($sql);
+
+// Добавление отзыва
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['review'])) {
+    $book_id = $_POST['book_id'];
+    $user = $_SESSION['username']; // Получение имени пользователя из сессии
+    $review = $_POST['review'];
+
+    $stmt = $conn->prepare("INSERT INTO reviews (book_id, user, review) VALUES (?, ?, ?)");
+    $stmt->bind_param("iss", $book_id, $user, $review);
+
+    if ($stmt->execute()) {
+        echo "Отзыв успешно добавлен";
+    } else {
+        echo "Ошибка добавления отзыва: " . $stmt->error;
+    }
+
+    $stmt->close();
+}
+
+// Обработка запроса на взятие книги
+if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['request_book'])) {
+    $book_id = $_POST['book_id'];
+    $user = $_SESSION['username'];
+    $phone_number = $_POST['phone_number'];
+
+    $stmt = $conn->prepare("INSERT INTO book_requests (book_id, user, phone_number) VALUES (?, ?, ?)");
+    $stmt->bind_param("iss", $book_id, $user, $phone_number);
+
+    if ($stmt->execute()) {
+        echo "Запрос на взятие книги успешно отправлен";
+    } else {
+        echo "Ошибка отправки запроса: " . $stmt->error;
+    }
+
+    $stmt->close();
+}
 ?>
 
 <!DOCTYPE html>
@@ -136,6 +172,88 @@ $result = $conn->query($sql);
             font-size: 14px;
             color: #999;
         }
+
+        .reviews {
+            margin-top: 20px;
+            border-top: 1px solid #ccc;
+            padding-top: 10px;
+        }
+
+        .review {
+            margin-top: 10px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .review:last-child {
+            border-bottom: none;
+        }
+
+        .review-user {
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .review-text {
+            font-size: 14px;
+            margin-top: 5px;
+        }
+
+        .add-review {
+            margin-top: 10px;
+        }
+
+        .add-review textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .add-review button {
+            width: 100%;
+            padding: 10px;
+            background: #ff7e5f;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .add-review button:hover {
+            background: #feb47b;
+        }
+
+        .request-book {
+            margin-top: 20px;
+        }
+
+        .request-book input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .request-book button {
+            width: 100%;
+            padding: 10px;
+            background: #ff7e5f;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .request-book button:hover {
+            background: #feb47b;
+        }
     </style>
 </head>
 <body>
@@ -159,8 +277,50 @@ $result = $conn->query($sql);
                 echo "<div class='book-title'>" . htmlspecialchars($row["title"]) . "</div>";
                 echo "<div class='book-author'>Автор: " . htmlspecialchars($row["author"]) . "</div>";
                 echo "<div class='book-description'>" . htmlspecialchars($row["description"]) . "</div>";
+               
+                echo "<div class='book-title'>" . htmlspecialchars($row["title"]) . "</div>";
+                echo "<div class='book-author'>Автор: " . htmlspecialchars($row["author"]) . "</div>";
+                echo "<div class='book-description'>" . htmlspecialchars($row["description"]) . "</div>";
                 echo "<div class='book-year'>Год издания: " . htmlspecialchars($row["year"]) . "</div>";
                 echo "<div class='book-genre'>Жанр: " . htmlspecialchars($row["genre"]) . "</div>";
+
+                // Получение отзывов для текущей книги
+                $book_id = $row['id'];
+                $reviews_sql = "SELECT * FROM reviews WHERE book_id = $book_id";
+                $reviews_result = $conn->query($reviews_sql);
+
+                echo "<div class='reviews'>";
+                if ($reviews_result->num_rows > 0) {
+                    while($review_row = $reviews_result->fetch_assoc()) {
+                        echo "<div class='review'>";
+                        echo "<div class='review-user'>" . htmlspecialchars($review_row["user"]) . ":</div>";
+                        echo "<div class='review-text'>" . htmlspecialchars($review_row["review"]) . "</div>";
+                        echo "</div>";
+                    }
+                } else {
+                    echo "Нет отзывов.";
+                }
+                echo "</div>";
+
+                // Форма добавления отзыва
+                echo "<div class='add-review'>";
+                echo "<form action='books.php' method='POST'>";
+                echo "<textarea name='review' placeholder='Оставить отзыв' required></textarea>";
+                echo "<input type='hidden' name='book_id' value='$book_id'>";
+                echo "<button type='submit'>Добавить отзыв</button>";
+                echo "</form>";
+                echo "</div>";
+
+                // Форма запроса на взятие книги
+                echo "<div class='request-book'>";
+                echo "<form action='books.php' method='POST'>";
+                echo "<input type='text' name='phone_number' placeholder='Введите номер телефона' required>";
+                echo "<input type='hidden' name='book_id' value='$book_id'>";
+                echo "<input type='hidden' name='request_book' value='1'>";
+                echo "<button type='submit'>Взять книгу</button>";
+                echo "</form>";
+                echo "</div>";
+
                 echo "</div>";
             }
         } else {
